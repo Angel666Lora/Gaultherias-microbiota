@@ -1,0 +1,778 @@
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(dplyr)
+
+# Cargar las tablas (ajusta las rutas de los archivos según sea necesario)
+metadata <- read.csv("metadata.csv", header = TRUE, row.names = 1)
+taxonomy <- read.csv("taxonomy.csv", header = TRUE, row.names = 1)
+feature_table <- read.csv("feature-table.csv", header = TRUE, row.names = 1)
+
+# Crear el objeto de Phyloseq a partir de las tablas cargadas
+OTU <- otu_table(as.matrix(feature_table), taxa_are_rows = TRUE)
+TAX <- tax_table(as.matrix(taxonomy))
+META <- sample_data(metadata)
+physeq <- phyloseq(OTU, TAX, META)
+
+# Calcular promedio inicial de reads por muestra
+promedio_reads_inicial <- mean(sample_sums(physeq))
+cat("Promedio de reads inicial por muestra:", promedio_reads_inicial, "\n")
+
+# Filtrado: eliminar features con solo un conteo en toda la tabla
+physeq_filtered <- prune_taxa(taxa_sums(physeq) > 1, physeq)
+promedio_reads_filtrado <- mean(sample_sums(physeq_filtered))
+cat("Promedio de reads después de filtrar taxa únicos por muestra:", promedio_reads_filtrado, "\n")
+
+# Filtrado por abundancia media
+abundancia_media <- taxa_sums(physeq_filtered) / nsamples(physeq_filtered)
+physeq_abundancia_filtrada <- prune_taxa(abundancia_media > 0, physeq_filtered)
+promedio_reads_abundancia <- mean(sample_sums(physeq_abundancia_filtrada))
+cat("Promedio de reads después de filtrar por abundancia media por muestra:", promedio_reads_abundancia, "\n")
+
+# Filtrado por varianza usando rango intercuartil del 10%
+varianza <- apply(otu_table(physeq_abundancia_filtrada), 1, var)
+q10 <- quantile(varianza, probs = 0.10)
+physeq_varianza_filtrada <- prune_taxa(varianza >= q10, physeq_abundancia_filtrada)
+promedio_reads_varianza <- mean(sample_sums(physeq_varianza_filtrada))
+cat("Promedio de reads después de filtrar por varianza por muestra:", promedio_reads_varianza, "\n")
+
+# Rarefacción a la librería mínima min_lib <- min(sample_sums(physeq_varianza_filtrada))
+physeq_rarefaccionada <- rarefy_even_depth(physeq_varianza_filtrada, sample.size = min_lib, rngseed = 123)
+promedio_reads_rarefaccionada <- mean(sample_sums(physeq_rarefaccionada))
+cat("Promedio de reads después de rarefacción por muestra:", promedio_reads_rarefaccionada, "\n")
+
+# Escalado Total Sum Scale (TSS)
+otu_table(physeq_rarefaccionada) <- transform_sample_counts(physeq_rarefaccionada, function(x) x / sum(x))
+promedio_reads_tss <- mean(sample_sums(physeq_rarefaccionada))
+cat("Promedio de reads después de escalado TSS por muestra:", promedio_reads_tss, "\n")
+
+```
+
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(dplyr)
+
+# Cargar las tablas (ajusta las rutas de los archivos según sea necesario)
+metadata <- read.csv("metadata.csv", header = TRUE, row.names = 1)
+taxonomy <- read.csv("taxonomy.csv", header = TRUE, row.names = 1)
+feature_table <- read.csv("feature-table.csv", header = TRUE, row.names = 1)
+
+# Crear el objeto de Phyloseq a partir de las tablas cargadas
+OTU <- otu_table(as.matrix(feature_table), taxa_are_rows = TRUE)
+TAX <- tax_table(as.matrix(taxonomy))
+META <- sample_data(metadata)
+physeq <- phyloseq(OTU, TAX, META)
+
+# Total de reads iniciales
+total_reads_inicial <- sum(sample_sums(physeq))
+cat("Total de reads iniciales:", total_reads_inicial, "\n")
+
+# Filtrado: eliminar features con solo un conteo en toda la tabla
+physeq_filtered <- prune_taxa(taxa_sums(physeq) > 1, physeq)
+total_reads_filtrado <- sum(sample_sums(physeq_filtered))
+cat("Total de reads después de filtrar taxa únicos:", total_reads_filtrado, "\n")
+
+# Filtrado por abundancia media
+abundancia_media <- taxa_sums(physeq_filtered) / nsamples(physeq_filtered)
+physeq_abundancia_filtrada <- prune_taxa(abundancia_media > 0, physeq_filtered)
+total_reads_abundancia <- sum(sample_sums(physeq_abundancia_filtrada))
+cat("Total de reads después de filtrar por abundancia media:", total_reads_abundancia, "\n")
+
+# Filtrado por varianza usando rango intercuartil del 10%
+varianza <- apply(otu_table(physeq_abundancia_filtrada), 1, var)
+q10 <- quantile(varianza, probs = 0.10)
+physeq_varianza_filtrada <- prune_taxa(varianza >= q10, physeq_abundancia_filtrada)
+total_reads_varianza <- sum(sample_sums(physeq_varianza_filtrada))
+cat("Total de reads después de filtrar por varianza:", total_reads_varianza, "\n")
+
+# Rarefacción a la librería mínima
+min_lib <- min(sample_sums(physeq_varianza_filtrada))
+physeq_rarefaccionada <- rarefy_even_depth(physeq_varianza_filtrada, sample.size = min_lib, rngseed = 123)
+total_reads_rarefaccionada <- sum(sample_sums(physeq_rarefaccionada))
+cat("Total de reads después de rarefacción:", total_reads_rarefaccionada, "\n")
+
+# Escalado Total Sum Scale (TSS)
+otu_table(physeq_rarefaccionada) <- transform_sample_counts(physeq_rarefaccionada, function(x) x / sum(x))
+cat("Total de reads después de escalado TSS:", sum(sample_sums(physeq_rarefaccionada)), "\n")
+
+```
+
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(dplyr)
+
+# Cargar las tablas (ajusta las rutas de los archivos según sea necesario)
+metadata <- read.csv("metadata.csv", header = TRUE, row.names = 1)
+taxonomy <- read.csv("taxonomy.csv", header = TRUE, row.names = 1)
+feature_table <- read.csv("feature-table.csv", header = TRUE, row.names = 1)
+
+# Crear el objeto de Phyloseq a partir de las tablas cargadas
+OTU <- otu_table(as.matrix(feature_table), taxa_are_rows = TRUE)
+TAX <- tax_table(as.matrix(taxonomy))
+META <- sample_data(metadata)
+physeq <- phyloseq(OTU, TAX, META)
+
+# Filtrado: eliminar features con solo un conteo en toda la tabla
+physeq_filtered <- prune_taxa(taxa_sums(physeq) > 1, physeq)
+
+# Filtrado por abundancia media
+abundancia_media <- taxa_sums(physeq_filtered) / nsamples(physeq_filtered)
+physeq_abundancia_filtrada <- prune_taxa(abundancia_media > 0, physeq_filtered)
+
+# Filtrado por varianza usando rango intercuartil del 10%
+varianza <- apply(otu_table(physeq_abundancia_filtrada), 1, var)
+q10 <- quantile(varianza, probs = 0.10)
+physeq_varianza_filtrada <- prune_taxa(varianza >= q10, physeq_abundancia_filtrada)
+
+# Rarefacción a la librería mínima
+min_lib <- min(sample_sums(physeq_varianza_filtrada))
+physeq_rarefaccionada <- rarefy_even_depth(physeq_varianza_filtrada, sample.size = min_lib, rngseed = 123)
+
+# Escalado Total Sum Scale (TSS)
+otu_table(physeq_rarefaccionada) <- transform_sample_counts(physeq_rarefaccionada, function(x) x / sum(x))
+
+# Mostrar un resumen del objeto final para verificar
+physeq_rarefaccionada
+
+```
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(ggplot2)
+library(dplyr)
+
+# Agrupar a nivel de Phylum
+physeq_phylum <- tax_glom(physeq, "Phylum")
+
+# Calcular la abundancia relativa
+physeq_phylum_abund <- transform_sample_counts(physeq_phylum, function(x) x / sum(x))
+
+# Convertir a data.frame para usar con ggplot
+physeq_phylum_abund_df <- psmelt(physeq_phylum_abund)
+
+# Calcular la abundancia total por Phylum y seleccionar los 10 más abundantes
+top_phyla <- physeq_phylum_abund_df %>%
+  group_by(Phylum) %>%
+  summarize(TotalAbundance = sum(Abundance)) %>%
+  arrange(desc(TotalAbundance)) %>%
+  slice_head(n = 10) %>%
+  pull(Phylum)
+
+# Crear una nueva columna que agrupe los phyla fuera del top 10 como "Less Abundant Phylum"
+physeq_phylum_abund_df <- physeq_phylum_abund_df %>%
+  mutate(Phylum = ifelse(Phylum %in% top_phyla, Phylum, "Less Abundant Phylum"))
+
+# Crear el barplot con los 10 phyla más abundantes y el resto agrupado
+ggplot(physeq_phylum_abund_df, aes(x = Sample, y = Abundance, fill = Phylum)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(~ Station, scales = "free_x") + # Organizar por estaciones
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Sample", y = "Relative Abundance", fill = "Phylum") +
+  ggtitle("Distribución de la Abundancia Relativa de los 10 Phyla Más Abundantes (otros como 'Less Abundant Phylum') por Estación y Grupo 'Bulk'")
+
+```
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(ggplot2)
+library(dplyr)
+
+# Agrupar a nivel de Phylum
+physeq_phylum <- tax_glom(physeq, "Phylum")
+
+# Calcular la abundancia relativa
+physeq_phylum_abund <- transform_sample_counts(physeq_phylum, function(x) x / sum(x))
+
+# Convertir a data.frame para usar con ggplot
+physeq_phylum_abund_df <- psmelt(physeq_phylum_abund)
+
+# Calcular la abundancia total por Phylum y seleccionar los 10 más abundantes
+top_phyla <- physeq_phylum_abund_df %>%
+  group_by(Phylum) %>%
+  summarize(TotalAbundance = sum(Abundance)) %>%
+  arrange(desc(TotalAbundance)) %>%
+  slice_head(n = 10) %>%
+  pull(Phylum)
+
+# Crear una nueva columna que agrupe los phyla fuera del top 10 como "Less Abundant Phylum"
+physeq_phylum_abund_df <- physeq_phylum_abund_df %>%
+  mutate(Phylum = ifelse(Phylum %in% top_phyla, Phylum, "Less Abundant Phylum"))
+
+# Crear nuevas columnas para 'Season' y 'Site' en función de las etiquetas en 'Sample'
+physeq_phylum_abund_df <- physeq_phylum_abund_df %>%
+  mutate(Season = case_when(
+    grepl("S$", Sample) ~ "Summer",
+    grepl("W$", Sample) ~ "Winter",
+    TRUE ~ "Bulk" # Asignar "Bulk" directamente
+  ),
+  Site = case_when(
+    grepl("^A", Sample) ~ "A",
+    grepl("^B", Sample) ~ "B",
+    TRUE ~ "Bulk" # Asignar "Bulk" directamente
+  ))
+
+# Agrupar por Season, Site y Phylum para obtener la abundancia relativa promedio
+physeq_group_abund_df <- physeq_phylum_abund_df %>%
+  group_by(Season, Site, Phylum) %>%
+  summarize(Abundance = mean(Abundance))
+
+# Ajustar el orden de los niveles para que "Bulk" esté al principio
+physeq_group_abund_df$Season <- factor(physeq_group_abund_df$Season, levels = c("Bulk", "Summer", "Winter"))
+physeq_group_abund_df$Site <- factor(physeq_group_abund_df$Site, levels = c("Bulk", "A", "B"))
+
+# Crear el barplot con los 10 phyla más abundantes y el resto agrupado por Season y Site
+ggplot(physeq_group_abund_df, aes(x = Site, y = Abundance, fill = Phylum)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_grid(. ~ Season, scales = "free_x", space = "free") + # Organizar en columnas por estación
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5), # Etiquetas de Sitio en el eje x
+        strip.text = element_text(size = 10, face = "bold")) + # Etiquetas de Season arriba
+  labs(x = "Site", y = "Relative Abundance", fill = "Phylum") +
+  ggtitle("Relative Abundance of Top 10 Phyla by Season and Site")
+
+```
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(dplyr)
+
+# Agrupar a nivel de Phylum
+physeq_phylum <- tax_glom(physeq, "Phylum")
+
+# Calcular la abundancia relativa
+physeq_phylum_abund <- transform_sample_counts(physeq_phylum, function(x) x / sum(x))
+
+# Convertir a data.frame
+physeq_phylum_abund_df <- psmelt(physeq_phylum_abund)
+
+# Agrupar por estación y sitio para calcular la abundancia relativa promedio
+physeq_group_abund_df <- physeq_phylum_abund_df %>%
+  mutate(
+    Season = case_when(
+      grepl("S$", Sample) ~ "Summer",
+      grepl("W$", Sample) ~ "Winter",
+      TRUE ~ "Bulk"
+    ),
+    Site = case_when(
+      grepl("^A", Sample) ~ "A",
+      grepl("^B", Sample) ~ "B",
+      TRUE ~ "Bulk"
+    )
+  ) %>%
+  group_by(Season, Site, Phylum) %>%
+  summarize(TotalAbundance = sum(Abundance)) %>%
+  arrange(Season, Site, desc(TotalAbundance)) %>%
+  mutate(Percentage = TotalAbundance / sum(TotalAbundance) * 100)
+
+# Filtrar los tres filos más abundantes por estación y sitio
+top_three_abundance <- physeq_group_abund_df %>%
+  group_by(Season, Site) %>%
+  slice_max(order_by = TotalAbundance, n = 3)
+
+# Mostrar los resultados
+print(top_three_abundance)
+
+```
+
+```{r}
+# Ver los nombres de las muestras en el objeto phyloseq
+sample_names(physeq)
+# Verificar la distribución de las estaciones en el objeto phyloseq
+table(sample_data(physeq)$Station)
+
+
+# Verificar cuántas muestras quedan después de filtrar
+table(sample_data(physeq_filtered)$Station)
+
+
+```
+
+```{r}
+# Ver los valores de diversidad alfa (Shannon) para las muestras de Bulk
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+alpha_div$Station <- sample_data(physeq)$Station
+
+# Verificar los valores de Shannon para las muestras de Bulk
+alpha_div[alpha_div$Station == "Winter", ]
+# Ver los valores de diversidad alfa (Shannon) para las muestras de Bulk
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+alpha_div$Station <- sample_data(physeq)$Station
+
+# Verificar los valores de Shannon para las muestras de Bulk
+alpha_div[alpha_div$Station == "Summer", ]
+# Ver los valores de diversidad alfa (Shannon) para las muestras de Bulk
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+alpha_div$Station <- sample_data(physeq)$Station
+
+# Verificar los valores de Shannon para las muestras de Bulk
+alpha_div[alpha_div$Station == "Bulk", ]
+
+```
+```{r}
+# Instalar y cargar el paquete FSA si no está ya instalado
+if (!require("FSA")) install.packages("FSA")
+library(FSA)
+
+# Realizar la prueba de Dunn para comparaciones post-hoc tras Kruskal-Wallis
+dunn_test <- dunnTest(Shannon ~ Station, data = alpha_div, method = "bonferroni")
+
+# Ver los resultados
+print(dunn_test)
+```
+```{r}
+# Cargar las librerías necesarias
+library(ggplot2)
+library(dplyr)
+
+# Calcular la diversidad alfa (Shannon) con las muestras ya filtradas en phyloseq
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+
+# Añadir las estaciones a los datos de diversidad alfa
+alpha_div$Station <- sample_data(physeq)$Station
+
+# Visualización de la diversidad alfa (Shannon) por estación con colores y mejoras estéticas
+ggplot(alpha_div, aes(x = Station, y = Shannon, fill = Station)) +
+  geom_boxplot(outlier.shape = NA, color = "black", alpha = 0.7) +  # Colorear los boxplots y ajustar transparencia
+  geom_jitter(width = 0.1, size = 3, shape = 21, color = "black", fill = "white") +  # Ajustar los puntos
+  scale_fill_manual(values = c("Winter" = "#4C9BFF", "Summer" = "#FF9F1C", "Bulk" = "#8E44AD")) +  # Asignar colores a cada estación
+  labs(x = "Station", y = "Shannon Diversity Index", title = "Alpha Diversity (Shannon) by Station") +
+  theme_minimal(base_size = 14) +  # Tema minimalista
+  theme(
+    axis.title = element_text(size = 14, face = "bold"),  # Títulos de los ejes en negrita
+    axis.text = element_text(size = 12),  # Ajustar el tamaño de los textos de los ejes
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Título en negrita y centrado
+    legend.position = "left"  # Eliminar la leyenda
+  ) 
+
+```
+```{r}
+# Ver los valores de diversidad alfa (Shannon) para las muestras de Bulk
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+alpha_div$Site <- sample_data(physeq)$Site
+
+# Verificar los valores de Shannon para las muestras de Bulk
+alpha_div[alpha_div$Site == "Winter", ]
+# Ver los valores de diversidad alfa (Shannon) para las muestras de Bulk
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+alpha_div$Site <- sample_data(physeq)$Site
+
+# Verificar los valores de Shannon para las muestras de Bulk
+alpha_div[alpha_div$Site == "Summer", ]
+# Ver los valores de diversidad alfa (Shannon) para las muestras de Bulk
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+alpha_div$Site <- sample_data(physeq)$Site
+
+# Verificar los valores de Shannon para las muestras de Bulk
+alpha_div[alpha_div$Station == "Bulk", ]
+```
+
+```{r}
+# Cargar las librerías necesarias
+library(ggplot2)
+library(dplyr)
+
+# Calcular la diversidad alfa (Shannon) con las muestras ya filtradas en phyloseq
+alpha_div <- estimate_richness(physeq, measures = "Shannon")
+
+# Añadir las estaciones a los datos de diversidad alfa
+alpha_div$Site <- sample_data(physeq)$Site
+
+# Visualización de la diversidad alfa (Shannon) por estación con colores y mejoras estéticas
+ggplot(alpha_div, aes(x = Site, y = Shannon, fill = Site)) +
+  geom_boxplot(outlier.shape = NA, color = "black", alpha = 0.7) +  # Colorear los boxplots y ajustar transparencia
+  geom_jitter(width = 0.1, size = 3, shape = 21, color = "black", fill = "white") +  # Ajustar los puntos
+  scale_fill_manual(values = c("A" = "#2FFBFF", "B" = "#DF4F1C", "Bulk" = "#8E44AD")) +  # Asignar colores a cada estación
+  labs(x = "Sampling Point", y = "Shannon Diversity Index", title = "Alpha Diversity (Shannon) by Sampling point") +
+  theme_minimal(base_size = 14) +  # Tema minimalista
+  theme(
+    axis.title = element_text(size = 14, face = "bold"),  # Títulos de los ejes en negrita
+    axis.text = element_text(size = 12),  # Ajustar el tamaño de los textos de los ejes
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Título en negrita y centrado
+    legend.position = "left"  # Eliminar la leyenda
+  ) 
+
+```
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(pairwiseAdonis)
+
+# Calcular la matriz de distancias de Bray-Curtis
+bray_dist <- distance(physeq, method = "bray")
+
+# 1. Realizar PERMANOVA usando betadisper para evaluar la homogeneidad de la dispersión entre estaciones
+permanova_result <- betadisper(bray_dist, group = sample_data(physeq)$Station)
+print(permanova_result)
+
+# Realizar prueba de PERMANOVA sobre dispersión
+anova_permanova_result <- anova(permanova_result)
+print(anova_permanova_result)
+
+# 2. Realizar comparaciones pairwise PERMANOVA con la función pairwiseAdonis
+pairwise_permanova_result <- pairwise.adonis(bray_dist, factors = sample_data(physeq)$Station)
+print(pairwise_permanova_result)
+
+# 3. Realizar PCoA usando la matriz de distancias de Bray-Curtis
+pcoa_result <- ordinate(physeq, method = "PCoA", distance = bray_dist)
+
+# Extraer los porcentajes de varianza explicada por cada eje
+explained_var <- pcoa_result$values$Relative_eig * 100
+xlab <- paste0("PCoA Axis 1 (", round(explained_var[1], 2), "%)")
+ylab <- paste0("PCoA Axis 2 (", round(explained_var[2], 2), "%)")
+
+# Visualizar el PCoA con elipses
+pcoa_plot <- ggplot(as.data.frame(pcoa_result$vectors), aes(x = Axis.1, y = Axis.2, color = sample_data(physeq)$Station)) +
+  geom_point(size = 3) +  # Puntos en el gráfico
+  stat_ellipse(type = "t", level = 0.95, aes(group = sample_data(physeq)$Station)) +  # Elipses para cada estación
+  scale_color_manual(values = c("Winter" = "#4C9BFF", "Summer" = "#FF9F1C", "Bulk" = "#8E44AD")) +  # Colores para cada estación
+  labs(title = "PCoA of Bray-Curtis Distances by Station",
+       x = xlab, y = ylab) +
+  theme_minimal(base_size = 14) +
+  theme(legend.title = element_blank())  # Eliminar el título de la leyenda
+
+# Mostrar el gráfico
+print(pcoa_plot)
+```
+```{r}
+# Calcular la matriz de distancias de Bray-Curtis
+bray_dist <- distance(physeq, method = "bray")
+
+# Evaluar la homogeneidad de la dispersión entre los grupos
+dispersion <- betadisper(bray_dist, group = sample_data(physeq)$Station)
+
+# ANOVA para probar diferencias en dispersión
+anova_dispersion <- anova(dispersion)
+print(anova_dispersion)
+
+# Post-hoc para comparaciones por pares
+posthoc_dispersion <- TukeyHSD(dispersion)
+print(posthoc_dispersion)
+
+```
+
+```{r}
+# Cargar las librerías necesarias
+library(phyloseq)
+library(dplyr)
+
+# Cargar las tablas (ajusta las rutas de los archivos según sea necesario)
+metadata <- read.csv("metadata.csv", header = TRUE, row.names = 1)
+taxonomy <- read.csv("taxonomy.csv", header = TRUE, row.names = 1)
+feature_table <- read.csv("feature-table.csv", header = TRUE, row.names = 1)
+
+# Crear el objeto de Phyloseq a partir de las tablas cargadas
+OTU <- otu_table(as.matrix(feature_table), taxa_are_rows = TRUE)
+TAX <- tax_table(as.matrix(taxonomy))
+META <- sample_data(metadata)
+physeq <- phyloseq(OTU, TAX, META)
+
+# Filtrado: eliminar features con solo un conteo en toda la tabla
+physeq_filtered <- prune_taxa(taxa_sums(physeq) > 1, physeq)
+
+# Filtrado por abundancia media
+abundancia_media <- taxa_sums(physeq_filtered) / nsamples(physeq_filtered)
+physeq_abundancia_filtrada <- prune_taxa(abundancia_media > 0, physeq_filtered)
+
+# Filtrado por varianza usando el rango intercuartil del 10%
+varianza <- apply(otu_table(physeq_abundancia_filtrada), 1, var)
+q10 <- quantile(varianza, probs = 0.10)
+physeq_varianza_filtrada <- prune_taxa(varianza >= q10, physeq_abundancia_filtrada)
+
+# Rarefacción a la librería mínima
+min_lib <- min(sample_sums(physeq_varianza_filtrada))
+physeq_rarefaccionada <- rarefy_even_depth(physeq_varianza_filtrada, sample.size = min_lib, rngseed = 123)
+
+# Escalado Total Sum Scale (TSS)
+otu_table(physeq_rarefaccionada) <- transform_sample_counts(physeq_rarefaccionada, function(x) x / sum(x))
+
+# Mostrar un resumen del objeto final para verificar
+physeq_rarefaccionada
+
+```
+```{r}
+# Instalar y cargar las librerías necesarias si no están instaladas
+if(!require(UpSetR)) install.packages("UpSetR")
+if(!require(ggvenn)) install.packages("ggvenn")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(phyloseq)) install.packages("phyloseq")
+
+library(UpSetR)
+library(ggvenn)
+library(dplyr)
+library(phyloseq)
+# Niveles taxonómicos a analizar (sin "Kingdom")
+taxonomic_levels <- c("Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+# Función para generar gráficos UpSet y Venn en cada nivel taxonómico
+create_plots <- function(physeq_obj, tax_rank) {
+  # Agrupar a nivel del taxón especificado
+  physeq_tax <- tax_glom(physeq_obj, taxrank = tax_rank)
+  
+  # Extraer la tabla OTU y taxonomía por nivel
+  otu_tax <- as.data.frame(otu_table(physeq_tax))
+  taxonomy_tax <- as.data.frame(tax_table(physeq_tax))
+  
+  # Añadir la información taxonómica a la tabla OTU
+  otu_tax[[tax_rank]] <- taxonomy_tax[[tax_rank]]
+  
+  # Sumar las abundancias por el nivel taxonómico seleccionado
+  abundance_tax <- otu_tax %>%
+    group_by(.data[[tax_rank]]) %>%
+    summarise(across(everything(), sum, na.rm = TRUE)) %>%
+    filter(!is.na(.data[[tax_rank]]))  # Eliminar filas sin información del nivel
+
+  # Crear datos de presencia/ausencia para cada categoría (Winter, Summer, Bulk)
+  winter_tax <- abundance_tax %>% select(all_of(tax_rank), ends_with("W")) %>% mutate(Presence = rowSums(.[-1]) > 0)
+  summer_tax <- abundance_tax %>% select(all_of(tax_rank), ends_with("S")) %>% mutate(Presence = rowSums(.[-1]) > 0)
+  bulk_tax <- abundance_tax %>% select(all_of(tax_rank), starts_with("Bulk")) %>% mutate(Presence = rowSums(.[-1]) > 0)
+
+  # Crear una tabla de presencia/ausencia para UpSet
+  tax_presence <- data.frame(
+    Taxon = abundance_tax[[tax_rank]],
+    Winter = as.integer(winter_tax$Presence),
+    Summer = as.integer(summer_tax$Presence),
+    Bulk = as.integer(bulk_tax$Presence)
+  )
+
+  # Graficar el UpSet
+  upset_title <- paste("UpSet Plot of", tax_rank, "Level")
+  print(upset_title)
+  print(upset(tax_presence, sets = c("Winter", "Summer", "Bulk"),
+        order.by = "freq",
+        main.bar.color = "dodgerblue",
+        sets.bar.color = "skyblue",
+        matrix.color = "black",
+        sets.x.label = "Set Size"))
+
+  # Preparar lista de taxones para diagrama de Venn
+  tax_list <- list(
+    Winter = tax_presence$Taxon[tax_presence$Winter == 1],
+    Summer = tax_presence$Taxon[tax_presence$Summer == 1],
+    Bulk = tax_presence$Taxon[tax_presence$Bulk == 1]
+  )
+
+  # Graficar el diagrama de Venn
+  venn_title <- paste("Venn Diagram of", tax_rank, "Level")
+  print(venn_title)
+  print(ggvenn(tax_list, show_percentage = TRUE, fill_color = c("skyblue", "salmon", "lightgreen")) +
+    ggtitle(venn_title) +
+    theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")))
+}
+
+# Crear gráficos para cada nivel taxonómico en taxonomic_levels
+for (level in taxonomic_levels) {
+  create_plots(physeq_rarefaccionada, level)
+}
+
+```
+```{r}
+# Cargar las librerías necesarias
+if(!require(UpSetR)) install.packages("UpSetR")
+if(!require(ggvenn)) install.packages("ggvenn")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(phyloseq)) install.packages("phyloseq")
+
+library(UpSetR)
+library(ggvenn)
+library(dplyr)
+library(phyloseq)
+
+# Función para análisis y extracción de datos relevantes a nivel de género
+analyze_genus_level <- function(physeq_obj) {
+  # Agrupar a nivel de Género
+  physeq_genus <- tax_glom(physeq_obj, taxrank = "Genus")
+  
+  # Extraer la tabla OTU y taxonomía por género
+  otu_genus <- as.data.frame(otu_table(physeq_genus))
+  taxonomy_genus <- as.data.frame(tax_table(physeq_genus))
+  
+  # Añadir la información taxonómica a la tabla OTU
+  otu_genus[["Genus"]] <- taxonomy_genus[["Genus"]]
+  
+  # Sumar las abundancias por género
+  abundance_genus <- otu_genus %>%
+    group_by(Genus) %>%
+    summarise(across(everything(), sum, na.rm = TRUE)) %>%
+    filter(!is.na(Genus))  # Eliminar filas sin información del nivel
+
+  # Crear datos de presencia/ausencia para cada categoría (Winter, Summer, Bulk)
+  winter_genus <- abundance_genus %>% select(Genus, ends_with("W")) %>% mutate(Presence = rowSums(.[-1]) > 0)
+  summer_genus <- abundance_genus %>% select(Genus, ends_with("S")) %>% mutate(Presence = rowSums(.[-1]) > 0)
+  bulk_genus <- abundance_genus %>% select(Genus, starts_with("Bulk")) %>% mutate(Presence = rowSums(.[-1]) > 0)
+
+  # Crear una tabla de presencia/ausencia
+  genus_presence <- data.frame(
+    Taxon = abundance_genus[["Genus"]],
+    Winter = as.integer(winter_genus$Presence),
+    Summer = as.integer(summer_genus$Presence),
+    Bulk = as.integer(bulk_genus$Presence)
+  )
+
+  # Calcular géneros exclusivos de cada categoría
+  exclusive_winter <- sum(genus_presence$Winter == 1 & genus_presence$Summer == 0 & genus_presence$Bulk == 0)
+  exclusive_summer <- sum(genus_presence$Summer == 1 & genus_presence$Winter == 0 & genus_presence$Bulk == 0)
+  exclusive_bulk <- sum(genus_presence$Bulk == 1 & genus_presence$Winter == 0 & genus_presence$Summer == 0)
+  
+  # Calcular géneros compartidos entre categorías
+  shared_all <- sum(genus_presence$Winter == 1 & genus_presence$Summer == 1 & genus_presence$Bulk == 1)
+  shared_winter_summer <- sum(genus_presence$Winter == 1 & genus_presence$Summer == 1 & genus_presence$Bulk == 0)
+  shared_winter_bulk <- sum(genus_presence$Winter == 1 & genus_presence$Bulk == 1 & genus_presence$Summer == 0)
+  shared_summer_bulk <- sum(genus_presence$Summer == 1 & genus_presence$Bulk == 1 & genus_presence$Winter == 0)
+  
+  # Calcular el total de géneros presentes en cada categoría
+  total_winter <- sum(genus_presence$Winter)
+  total_summer <- sum(genus_presence$Summer)
+  total_bulk <- sum(genus_presence$Bulk)
+  
+  # Imprimir resultados relevantes
+  cat("Número total de géneros:\n")
+  cat("Winter:", total_winter, "\nSummer:", total_summer, "\nBulk:", total_bulk, "\n")
+  
+  cat("\nNúmero de géneros exclusivos:\n")
+  cat("Winter:", exclusive_winter, "\nSummer:", exclusive_summer, "\nBulk:", exclusive_bulk, "\n")
+  
+  cat("\nNúmero de géneros compartidos:\n")
+  cat("Entre todas las categorías:", shared_all, "\nEntre Winter y Summer:", shared_winter_summer,
+      "\nEntre Winter y Bulk:", shared_winter_bulk, "\nEntre Summer y Bulk:", shared_summer_bulk, "\n")
+  
+  # Generar gráficos
+  # UpSet Plot
+  print(upset(genus_presence, sets = c("Winter", "Summer", "Bulk"),
+        order.by = "freq",
+        main.bar.color = "dodgerblue",
+        sets.bar.color = "skyblue",
+        matrix.color = "black",
+        sets.x.label = "Number of Genera"))
+  
+  # Venn Diagram
+  genus_list <- list(
+    Winter = genus_presence$Taxon[genus_presence$Winter == 1],
+    Summer = genus_presence$Taxon[genus_presence$Summer == 1],
+    Bulk = genus_presence$Taxon[genus_presence$Bulk == 1]
+  )
+  print(ggvenn(genus_list, show_percentage = TRUE, fill_color = c("skyblue", "salmon", "lightgreen")) +
+    ggtitle("Venn Diagram of Genus Level") +
+    theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold")))
+}
+
+# Llamar a la función para análisis a nivel de Género
+analyze_genus_level(physeq_rarefaccionada)
+
+```
+##Coocurence networks
+```{r}
+# Verificar e instalar librerías necesarias
+necessary_packages <- c("here", "phyloseq", "magrittr", "microeco", "file2meco", 
+                        "SpiecEasi", "igraph", "rgexf", "ggplot2", "ape", "dplyr")
+for (package in necessary_packages) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package, dependencies = TRUE)
+    library(package, character.only = TRUE)
+  }
+}
+
+# Cargar las tablas desde el directorio actual
+otu_table_in <- read.csv("feature_table_3.csv", row.names = 1, header = TRUE)
+taxonomyC <- read.csv("taxonomy_3.csv", row.names = 1, header = TRUE)
+metadados <- read.csv("metadata_1.csv", row.names = 1, header = TRUE)
+
+# Convertir datos a objetos de phyloseq
+OTU <- otu_table(as.matrix(otu_table_in), taxa_are_rows = TRUE)
+TAX <- tax_table(as.matrix(taxonomyC))
+META <- sample_data(metadados)
+
+# Crear objeto phyloseq
+ps <- phyloseq(OTU, TAX, META)
+
+# Filtrar para incluir solo bacterias
+ps_filtered <- subset_taxa(ps, Kingdom == "Bacteria")
+
+# Reemplazar valores NA o vacíos en Genus por "Unclassified"
+#tax_table(ps_filtered)[is.na(tax_table(ps_filtered)[, "Phylum"]), "Phylum"] <- "Unclassified"
+#tax_table(ps_filtered)[tax_table(ps_filtered)[, "Phylum"] == "", "Phylum"] <- "Unclassified"
+# Agrupar explícitamente a nivel de género
+#ps_genus <- tax_glom(ps_filtered, taxrank = "Phylum")
+
+# Verificar el nivel taxonómico actual
+#message("Nivel taxonómico después de tax_glom: ", rank_names(ps_genus))
+
+# Exportar la tabla de taxonomía agrupada a nivel de género para verificar
+#write.csv(tax_table(ps_genus), "taxonomy_genus_level.csv")
+
+# Normalizar las muestras
+total <- median(sample_sums(ps_genus))
+standf <- function(x, t = total) round(t * (x / sum(x)))
+ps_normalized <- transform_sample_counts(ps_filtered, standf)
+
+### Transformar a objeto `microeco`
+micro_genus <- phyloseq2meco(ps_normalized)
+micro_genus$tax_table %<>% tidy_taxonomy
+micro_genus$tidy_dataset()
+
+### Separar en grupos según metadata (ejemplo con estaciones)
+micro_winter <- clone(micro_genus)
+micro_summer <- clone(micro_genus)
+micro_bulk <- clone(micro_genus)
+
+micro_winter$sample_table <- subset(micro_winter$sample_table, Station == "Winter")
+micro_summer$sample_table <- subset(micro_summer$sample_table, Station == "Summer")
+micro_bulk$sample_table <- subset(micro_bulk$sample_table, Station == "Bulk")
+
+micro_winter$tidy_dataset()
+micro_summer$tidy_dataset()
+micro_bulk$tidy_dataset()
+
+### Generar redes de correlación para cada grupo
+generate_network <- function(dataset, group_name, filepath) {
+  network <- trans_network$new(
+    dataset = dataset,
+    cor_method = "sparcc",
+    use_sparcc_method = "SpiecEasi",
+    filter_thres = 0.0005
+  )
+  
+  # Calcular red con parámetros definidos (umbral de p y correlación)
+  network$cal_network(COR_p_thres = 0.01, COR_cut = 0.7, COR_optimization = FALSE)
+  
+  # Detectar módulos en la red
+  network$cal_module(method = "cluster_louvain")
+  
+  # Guardar la red en formato GEXF para Gephi
+  network$save_network(filepath = filepath)
+  
+  message(paste("Red para", group_name, "guardada en", filepath))
+}
+
+# Generar y exportar las redes para los grupos
+generate_network(micro_winter, "Winter", "network_winter_genus.gexf")
+generate_network(micro_summer, "Summer", "network_summer_genus.gexf")
+generate_network(micro_Bulk, "Bulk", "network_Bulk_genus.gexf")
+
+# Crear un objeto combinado con datos de Winter y Summer
+micro_combined <- clone(micro_genus)
+
+# Filtrar las muestras que pertenecen a Winter y Summer
+combined_samples <- subset(micro_genus$sample_table, Station %in% c("Winter", "Summer"))
+
+# Validar los nombres de taxones compartidos
+winter_taxa <- rownames(micro_winter$tax_table)
+summer_taxa <- rownames(micro_summer$tax_table)
+shared_taxa <- intersect(winter_taxa, summer_taxa)
+message("Número de taxones compartidos: ", length(shared_taxa))
+
+# Asegurarse de que el dataset combinado contiene exactamente las muestras deseadas
+stopifnot(all(combined_samples$Station %in% c("Winter", "Summer")))
+
+# Actualizar la tabla de muestras del objeto combinado
+micro_combined$sample_table <- combined_samples
+
+# Recalcular el dataset tidy
+micro_combined$tidy_dataset()
+
+# Generar la red combinada para Winter y Summer
+generate_network(micro_combined, "Winter_Summer", "network_winter_summer_genus.gexf")
+
+```
