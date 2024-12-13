@@ -1,0 +1,146 @@
+# Librerías necesarias
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.utils.extmath import randomized_svd
+from scipy.stats import pearsonr
+
+# Cargar datos desde un archivo Excel
+data = pd.read_excel('transformed_data.xlsx', sheet_name=0)
+
+# Convertir la columna 'Treatment' en un tipo categórico
+data['Treatment'] = pd.Categorical(data['Treatment'], categories=['S', 'W', 'B'])
+
+# Escalar columnas numéricas (excepto 'Treatment')
+numerical_columns = data.columns[1:16]
+scaler = StandardScaler()
+data_scaled = scaler.fit_transform(data[numerical_columns])
+data[numerical_columns] = data_scaled
+
+# Matriz de correlación
+cor_matrix = np.corrcoef(data[numerical_columns].T)
+cor_df = pd.DataFrame(cor_matrix, columns=numerical_columns, index=numerical_columns)
+
+# Visualizar matriz de correlación
+plt.figure(figsize=(10, 8))
+sns.heatmap(cor_df, annot=True, fmt=".2f", cmap='RdYlGn', cbar=True)
+plt.title('Matriz de Correlación')
+plt.show()
+
+# PCA (Análisis de Componentes Principales)
+pca = PCA(n_components=3)
+pca_results = pca.fit_transform(data[numerical_columns])
+
+# Variación explicada
+print("Variación explicada por cada componente:")
+print(pca.explained_variance_ratio_)
+
+# Visualización biplot PCA
+pca_df = pd.DataFrame(pca_results, columns=['PC1', 'PC2', 'PC3'])
+pca_df['Treatment'] = data['Treatment']
+
+plt.figure(figsize=(10, 8))
+sns.scatterplot(x='PC1', y='PC2', hue='Treatment', style='Treatment', palette=['#F9A151', '#61A2DD', '#62BE62'], data=pca_df)
+plt.title('Biplot PCA')
+plt.xlabel('PC1')
+plt.ylabel('PC2')
+plt.legend(title='Treatment')
+plt.show()
+
+# Monte Carlo para PCA (Simulación de permutaciones)
+def monte_carlo_pca(data, n_iter=999):
+    rand_pcs = []
+    for _ in range(n_iter):
+        shuffled_data = data.sample(frac=1).reset_index(drop=True)
+        pca = PCA(n_components=3)
+        pca.fit(shuffled_data)
+        rand_pcs.append(pca.explained_variance_ratio_)
+    return np.array(rand_pcs)
+
+monte_carlo_results = monte_carlo_pca(data[numerical_columns])
+print("Monte Carlo PCA Test Completed.")
+
+# Librerías necesarias
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+# Cargar datos desde un archivo Excel
+data = pd.read_excel('transformed_data.xlsx', sheet_name=0)
+
+# Convertir la columna 'Treatment' en un tipo categórico
+data['Treatment'] = pd.Categorical(data['Treatment'], categories=['S', 'W', 'B'])
+
+# Escalar columnas numéricas (excepto 'Treatment')
+numerical_columns = data.columns[1:16]
+scaler = StandardScaler()
+data_scaled = scaler.fit_transform(data[numerical_columns])
+data[numerical_columns] = data_scaled
+
+# PCA (Análisis de Componentes Principales)
+pca = PCA(n_components=2)  # Usamos 2 componentes principales para el biplot
+pca_results = pca.fit_transform(data[numerical_columns])
+
+# Crear un DataFrame con los resultados del PCA
+pca_df = pd.DataFrame(pca_results, columns=['PC1', 'PC2'])
+pca_df['Treatment'] = data['Treatment']
+
+# Vectores de las variables en el espacio PCA
+loadings = pca.components_.T * np.sqrt(pca.explained_variance_)
+
+# Colores para las categorías
+palette = {'S': '#F9A151', 'W': '#61A2DD', 'B': '#62BE62'}
+
+# Función para crear elipses basadas en el 95% de confianza
+def confidence_ellipse(x, y, ax, n_std=2.0, **kwargs):
+    if x.size != y.size:
+        raise ValueError("x y y deben tener el mismo tamaño.")
+    cov = np.cov(x, y)
+    mean_x, mean_y = np.mean(x), np.mean(y)
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+    order = eigenvalues.argsort()[::-1]
+    eigenvalues, eigenvectors = eigenvalues[order], eigenvectors[:, order]
+    theta = np.degrees(np.arctan2(*eigenvectors[:, 0][::-1]))
+    width, height = 2 * n_std * np.sqrt(eigenvalues)
+    ellipse = Ellipse((mean_x, mean_y), width, height, angle=theta, **kwargs)
+    ax.add_patch(ellipse)
+
+# Gráfico PCA con vectores y elipses
+plt.figure(figsize=(12, 10))
+ax = plt.gca()
+
+# Puntos
+sns.scatterplot(
+    x='PC1', y='PC2', hue='Treatment', palette=palette, data=pca_df, s=100, edgecolor='k', ax=ax
+)
+
+# Añadir vectores para las variables (escalados para mayor visibilidad)
+vector_scale = 3  # Factor de escala para aumentar el tamaño de los vectores
+for i, (x, y) in enumerate(zip(loadings[:, 0], loadings[:, 1])):
+    ax.arrow(0, 0, x * vector_scale, y * vector_scale, color='gray', alpha=0.8, head_width=0.2, head_length=0.3)
+    plt.text(x * vector_scale * 1.2, y * vector_scale * 1.2, numerical_columns[i], color='black', ha='center', va='center')
+
+# Añadir elipses para cada grupo
+for treatment in pca_df['Treatment'].cat.categories:
+    subset = pca_df[pca_df['Treatment'] == treatment]
+    confidence_ellipse(
+        subset['PC1'], subset['PC2'], ax, n_std=2.0,
+        edgecolor=palette[treatment], facecolor=palette[treatment], alpha=0.2
+    )
+
+# Configuración del gráfico
+plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+plt.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+plt.title('Biplot PCA con Vectores y Elipses Ajustadas', fontsize=16)
+plt.xlabel('PC1 ({:.1f}%)'.format(pca.explained_variance_ratio_[0] * 100))
+plt.ylabel('PC2 ({:.1f}%)'.format(pca.explained_variance_ratio_[1] * 100))
+plt.legend(title='Treatment', loc='upper right')
+plt.grid(False)
+plt.show()
