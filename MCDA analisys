@@ -1,0 +1,71 @@
+```{r}
+# Cargar las bibliotecas necesarias
+library(dplyr)
+library(ggplot2)
+
+# Cargar los datos de mediciones PGPB y taxonomía
+pgpb_data <- read.csv("PGPBaktok.csv", sep = ";")
+taxonomy_data <- read.csv("TaxonomyBakt.csv", sep = ";")  # Archivo de taxonomía
+
+# Convertir los nombres de las columnas a un formato seguro para R
+colnames(pgpb_data) <- make.names(colnames(pgpb_data))
+colnames(taxonomy_data) <- make.names(colnames(taxonomy_data))
+
+# Convertir los valores numéricos de las columnas de mediciones si no están ya en formato numérico
+pgpb_data <- pgpb_data %>%
+  mutate(across(where(is.character), ~as.numeric(gsub(",", ".", .))))
+
+# Promediar las réplicas por cada ID
+pgpb_avg <- pgpb_data %>%
+  group_by(ID) %>%
+  summarise(across(everything(), mean, na.rm = TRUE))
+
+# Seleccionar las columnas que representan criterios de PGP
+pgpb_matrix <- pgpb_avg %>%
+  select(Siderophore_production_.psu., AIA_.g.L., NH2.umol.mL., IS.Al., IS.Fe., IS.Ca.)
+
+# Normalizar los datos (min-max normalization)
+pgpb_normalized <- as.data.frame(lapply(pgpb_matrix, function(x) (x - min(x)) / (max(x) - min(x))))
+
+# Definir los pesos de los criterios (ajustar según la importancia de cada criterio)
+weights <- c(0.2, 0.2, 0.2, 0.2, 0.2, 0.2)
+
+# Calcular la puntuación ponderada para cada bacteria (MCDA)
+pgpb_normalized$Weighted_Score <- rowSums(sweep(pgpb_normalized, 2, weights, "*"))
+
+# Unir las puntuaciones con los datos promedio de PGP
+final_results <- cbind(pgpb_avg, pgpb_normalized$Weighted_Score)
+
+# Renombrar la columna para facilitar el ordenamiento
+colnames(final_results)[ncol(final_results)] <- "Weighted_Score"
+
+# Ordenar las bacterias por la puntuación final (de mayor a menor)
+final_results <- final_results %>%
+  arrange(desc(Weighted_Score))
+
+# Unir la taxonomía usando la columna 'ID'
+final_results_with_taxonomy <- merge(final_results, taxonomy_data, by = "ID")
+
+# Crear una nueva columna que combine el nuevo ID asignado con género y especie
+final_results_with_taxonomy <- final_results_with_taxonomy %>%
+  arrange(desc(Weighted_Score)) %>%  # Asegurar el orden correcto
+  mutate(New_ID = row_number(),      # Asignar IDs ascendentes
+         Taxon_Label = paste(New_ID, Genus, sep = " - "))  # Combinar ID con género y especie
+
+# Seleccionar solo las columnas necesarias
+final_results_with_taxonomy <- final_results_with_taxonomy %>%
+  select(Taxon_Label, Weighted_Score)
+
+# Crear el gráfico sin leyenda y en blanco y negro
+ggplot(final_results_with_taxonomy, aes(x = reorder(Taxon_Label, -Weighted_Score), y = Weighted_Score)) +
+  geom_bar(stat = "identity", fill = "black") +  # Blanco y negro
+  theme_minimal() +
+  labs(title = "",
+       x = "Bacterial Genus (Ranked by Score)",
+       y = "Weighted Score (MCDA)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Quitar la leyenda
+
+# Guardar el gráfico como un archivo PNG
+ggsave("PGPB_activity_score_plot_ranked_id.png", width = 10, height = 6)
+```
